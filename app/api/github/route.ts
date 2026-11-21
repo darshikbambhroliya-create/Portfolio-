@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { Octokit } from "octokit";
 
 const octokit = new Octokit({
-  auth: process.env.GithubToken,
+  auth: process.env.GITHUB_TOKEN,
 });
 
 const query = `
@@ -99,6 +99,14 @@ export async function GET(request: NextRequest) {
       ),
     });
   } catch (error) {
-    console.error(error);
+    console.error("GitHub API error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to fetch GitHub contributions",
+      },
+      { status: 500 }
+    );
   }
 }
