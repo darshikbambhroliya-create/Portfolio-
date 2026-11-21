@@ -28,12 +28,16 @@ const GithubStreak = ({ username }: Props) => {
 
   // Fetch GitHub Data
   useEffect(() => {
-    const FetchGithubData = async () => {
+    const controller = new AbortController();
+
+    const fetchGithubData = async () => {
       try {
         isLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/github?username=${username}`);
+        const response = await fetch(`/api/github?username=${username}`, {
+          signal: controller.signal,
+        });
 
         const data = await response.json();
 
@@ -43,15 +47,23 @@ const GithubStreak = ({ username }: Props) => {
 
         setStats(data);
       } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+
         setError(
           error instanceof Error ? error.message : "Something went wrong"
         );
       } finally {
-        isLoading(false);
+        if (!controller.signal.aborted) {
+          isLoading(false);
+        }
       }
     };
 
-    FetchGithubData();
+    fetchGithubData();
+
+    return () => controller.abort();
   }, [username]);
 
   // Loading UI

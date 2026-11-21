@@ -1,9 +1,5 @@
-import { NextResponse, NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { Octokit } from "octokit";
-
-const octokit = new Octokit({
-  auth: process.env.GITHUB_TOKEN,
-});
 
 const query = `
   query($username: String!, $from: DateTime!, $to: DateTime!) {
@@ -26,16 +22,39 @@ const query = `
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const username = searchParams.get("username");
+
   if (!username) {
     return NextResponse.json(
-      { error: "UserName is required" },
-      { status: 401 }
+      {
+        success: false,
+        error: "Username is required",
+      },
+      { status: 400 }
     );
   }
+
+  const token = process.env.GITHUB_TOKEN;
+
+  if (!token) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "GITHUB_TOKEN is not configured",
+      },
+      { status: 500 }
+    );
+  }
+
   try {
+    const octokit = new Octokit({
+      auth: token,
+    });
+
     const today = new Date();
+
     const from = new Date();
     from.setDate(today.getDate() - 364);
+
     const { user } = await octokit.graphql<{
       user: {
         contributionsCollection: {
@@ -58,21 +77,24 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "GitHub user not found" },
+        {
+          success: false,
+          error: "GitHub user not found",
+        },
         { status: 404 }
       );
     }
+
     const calendar = user.contributionsCollection.contributionCalendar;
 
     const allDays = calendar.weeks.flatMap((week) => week.contributionDays);
-
-    const last30Days = allDays.slice(-30);
 
     const reversedDays = [...allDays].reverse();
 
     let currentStreak = 0;
 
     const startIndex = reversedDays[0]?.contributionCount === 0 ? 1 : 0;
+
     for (let i = startIndex; i < reversedDays.length; i++) {
       if (reversedDays[i].contributionCount > 0) {
         currentStreak++;
@@ -80,6 +102,7 @@ export async function GET(request: NextRequest) {
         break;
       }
     }
+
     const bestDayCommit = Math.max(
       ...allDays.map((day) => day.contributionCount)
     );
@@ -99,14 +122,14 @@ export async function GET(request: NextRequest) {
       ),
     });
   } catch (error) {
-    console.error("GitHub API error:", error);
+    console.error("GitHub GraphQL error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to fetch GitHub contributions",
+        error: "GitHub API request failed",
       },
-      { status: 500 }
+      { status: 502 }
     );
   }
 }
