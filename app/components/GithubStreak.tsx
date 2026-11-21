@@ -33,9 +33,7 @@ const GithubStreak = ({ username }: Props) => {
         isLoading(true);
         setError(null);
 
-        const response = await fetch(
-          `/api/github?username=${encodeURIComponent(username)}`
-        );
+        const response = await fetch(`/api/github?username=${username}`);
 
         const data = await response.json();
 
